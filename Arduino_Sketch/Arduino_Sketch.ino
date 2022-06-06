@@ -1,3 +1,11 @@
+/*
+  06.06.2022
+
+  перевірити живлення дисплею під час сну тільки без підсвітки
+  та +без символів
+
+  перевірити сон
+*/
 #include <SPI.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -16,17 +24,17 @@ Adafruit_BME280 bme;
 
 int maxMoisture = 100;
 
-int crtLowTemp = 0, crtHighTemp = 50;
-int crtLowHum = 0, crtHighHum = 95;
-int crtLowSoilMoist = 20, crtHighSoilMoist = 150;
+int crtLowTemp = 0, crtHighTemp = 60;
+int crtLowHum = 10, crtHighHum = 95;
+int crtLowSoilMoist = 20, crtHighSoilMoist = 200;
 float crtLowPress = 0, crtHighPress = 200000;
 
 unsigned long lastUpd_tm = 0, lastAction_tm = 0;
-unsigned long timeActUpd = 30, timePasUpd = 3600, timeWait = 300;
+unsigned long timeUpd = 30, timeSleep = 3600, timeWait = 300;
 
 float temperature = 0, pressure = 0, humidity = 0, soilMoisture = 0;
 
-bool activeMode = true, bklight = true, pcMode = false;
+bool activeMode = true, bklight = true, pcMode = false, allowAutoSleep = true;
 
 const char varTemp[2] = {'C', 'F'};
 const char *varPres[] = {"Pa", "mmHg", "inHg"};
@@ -84,10 +92,6 @@ void setup() {
   power.setSleepMode(POWERDOWN_SLEEP);
   power.calibrate(8562);      //(int) = getMaxTimeout()
   power.correctMillis(true);
-
-  //attachInterrupt(0, btnWakeUp, FALLING);
-  //detachInterrupt(0);
-  //power.sleepDelay(timeSleep);
   
   Serial.begin(9600);
 
@@ -123,16 +127,21 @@ void loop() {
   btnModeFunc();
   btnActFunc();
 
-  if (activeMode && millis() - lastAction_tm >= timeWait * 1000) {
+  if (allowAutoSleep && activeMode && (lastAction_tm + timeWait*1000 <= millis())) {
+    activeMode = false;
+  }
 
+  if (!activeMode) {
+    attachInterrupt(0, btnWakeUp, FALLING);
+    power.sleepDelay(timeSleep*1000);
+    detachInterrupt(0);
   }
 }
 
 
 
 void updData() { 
-  if ((activeMode && lastUpd_tm + timeActUpd*1000 <= millis()) 
-        || (!activeMode && lastUpd_tm + timePasUpd <= millis())) {
+  if (lastUpd_tm + timeUpd*1000 <= millis()) {
     lastUpd_tm = millis();
     getValues();
 
@@ -146,7 +155,7 @@ void updData() {
 
     if (pcMode && activeMode) {
       lcd.setCursor(19, 3);
-        lcd.write(byte(1));
+      lcd.write(byte(1));
     }
   }
 }
@@ -222,8 +231,7 @@ void btnModeFunc() {
     lastAction_tm = millis();
   }
   else if (btnMode.getLastStatus() == 2) {
-    
-    lastAction_tm = millis();
+    activeMode = false;
   }
 }
 
