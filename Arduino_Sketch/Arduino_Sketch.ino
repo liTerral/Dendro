@@ -3,11 +3,12 @@
 #include <LiquidCrystal_I2C.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include <GyverPower.h>
 
 #define pin_moistureSensor A0
 #define pin_moisturePower 7
-#define pin_btnMode 5
-#define pin_btnAct 6
+#define pin_btnMode 2
+#define pin_btnAct 3
 
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 Adafruit_BME280 bme;
@@ -79,8 +80,15 @@ void setup() {
   pinMode(pin_btnMode, INPUT_PULLUP);
   pinMode(pin_btnAct, INPUT_PULLUP);
   pinMode(pin_moisturePower, OUTPUT);
-  
 
+  power.setSleepMode(POWERDOWN_SLEEP);
+  power.calibrate(8562);      //(int) = getMaxTimeout()
+  power.correctMillis(true);
+
+  //attachInterrupt(0, btnWakeUp, FALLING);
+  //detachInterrupt(0);
+  //power.sleepDelay(timeSleep);
+  
   Serial.begin(9600);
 
   lcd.init();
@@ -115,18 +123,14 @@ void loop() {
   btnModeFunc();
   btnActFunc();
 
-  if (!activeMode && millis() - lastAction_tm >= timeWait * 1000) {
+  if (activeMode && millis() - lastAction_tm >= timeWait * 1000) {
 
   }
 }
 
 
 
-void updData() {
-  /*if ((activeMode && lastUpd_tm + timeActUpd*1000 <= millis() - 100) || (!activeMode && lastUpd_tm + timePasUpd <= millis() - 100)) {
-    digitalWrite(pin_moisturePower, HIGH);
-  }
-  else*/ 
+void updData() { 
   if ((activeMode && lastUpd_tm + timeActUpd*1000 <= millis()) 
         || (!activeMode && lastUpd_tm + timePasUpd <= millis())) {
     lastUpd_tm = millis();
@@ -246,4 +250,12 @@ void btnActFunc() {
 
     lastAction_tm = millis();
   }
+}
+
+
+void btnWakeUp() {
+  power.wakeUp();
+
+  lastAction_tm = millis();
+  activeMode = true;
 }
